@@ -1,0 +1,3 @@
+(display (* 3 6))
+; comments work now too
+(display (+ 1 2))
