@@ -19,6 +19,10 @@ SECTIONS {
 	}
 	.rodata : ALIGN(4K) {
 		*(.rodata);
+		PROVIDE(functions_start = .);
+		*(.functions)
+		PROVIDE(functions_end = .);
+		*(.function_names)
 	}
 	.data : ALIGN(4K) {
 		*(.data);

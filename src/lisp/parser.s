@@ -78,7 +78,7 @@ read_ident: start_frame 16 # () -> (a0 node)
   sw s2, 8(sp)
   sw s3, 12(sp)
   mv s0, tp
-  li s1, 1
+  li s1, 0
   jal peek_char
   jal is_digit
   bnez a0, read_ident.not_an_ident
@@ -96,11 +96,14 @@ read_ident.loop:
   li s3, ')'
   beq a0, s2, read_ident.end
   beq a0, s3, read_ident.end
+  jal peek_char
+  jal is_whitespace
+  bnez a0, read_ident.end
   addi s1, s1, 1
-  addi tp, tp, 1
+  jal read_char
   j read_ident.loop
 read_ident.not_an_ident:
-  print "ident: not an alphabetic character\n"
+  print "ident: not an identifier character\n"
   j panic
 read_ident.end:
   li a0, AST_NODE_SIZE
@@ -110,6 +113,15 @@ read_ident.end:
   sh t0, NODE_TYPE(a0)
   sw s0, IDENT_ADDRESS(a0)
   sw s1, IDENT_SIZE(a0)
+# read_ident.debug:
+#   mv s2, a0
+#   print "debugging ident: '"
+#   mv a0, s0
+#   mv a1, s1
+#   jal print_text_with_length
+#   print "'\n"
+#   mv a0, s2
+read_ident.debug_end:
   lw s0, 0(sp)
   lw s1, 4(sp)
   lw s2, 8(sp)
@@ -189,12 +201,8 @@ read_group.read_children:
   lb t0, GROUP_DEF_CLOSE_CHAR(s2)
   beq t0, a0, read_group.end
   # skip whitespace
-  li t0, ' '
-  beq a0, t0, read_group.whitespace
-  li t0, '\n'
-  beq a0, t0, read_group.whitespace
-  li t0, '\r'
-  beq a0, t0, read_group.whitespace
+  jal is_whitespace
+  bnez a0, read_group.whitespace
   # read expr
   jal read_expr
   sw a0, 0(s1)
@@ -286,6 +294,21 @@ erase_comments.loop:
   beqz a0, erase_comments.end
   j erase_comments.loop
 erase_comments.end:
+  ret
+
+is_whitespace: # (a0 char) -> (a0 bool)
+  li a1, 0
+  li t0, ' '
+  beq a0, t0, is_whitespace.whitespace
+  li t0, '\r'
+  beq a0, t0, is_whitespace.whitespace
+  li t0, '\n'
+  beq a0, t0, is_whitespace.whitespace
+  j is_whitespace.end
+is_whitespace.whitespace:
+  li a1, 1
+is_whitespace.end:
+  mv a0, a1
   ret
 
 .bss

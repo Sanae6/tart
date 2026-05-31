@@ -28,3 +28,20 @@ is_alpha: start_frame 4 # () -> (a0 bool)
 is_alpha.end:
   lw s0, 0(sp)
   end_frame
+
+.global streq
+streq: # (a0 a, a1 b, a2 length) -> (a0 bool)
+  li t0, 1
+streq.loop:
+  beqz a2, streq.end
+  lb t1, 0(a0)
+  lb t2, 0(a1)
+  bne t1, t2, streq.fail
+  addi a2, a2, -1
+  addi a0, a0, 1
+  addi a1, a1, 1
+  j streq.loop
+streq.fail:
+  mv t0, zero
+streq.end:
+  ret
