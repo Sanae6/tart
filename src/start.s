@@ -11,6 +11,10 @@ system_entrypoint:
   addi a0, a0, 1
   bne a0, a1, 2b
 
+  // to investigate if care (probably don't care)
+  # li a0, 0x80000000
+  # jal print_integer
+  # jal print_nl
   jal lisp_main
   j exit
 

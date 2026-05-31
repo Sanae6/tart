@@ -8,7 +8,7 @@
 #define IDENT_SIZE 12
 #define NUMBER_VALUE 8
 #define GROUP_CHILDREN 8
-#define GROUP_ARRAY 12
+#define GROUP_START 12
 
 #define AST_IDENT 0
 #define AST_NUMBER 1

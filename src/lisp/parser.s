@@ -2,15 +2,11 @@
 #include "std.lib.s"
 
 .global lisp_parse
-lisp_parse: start_frame 8 # () -> (a0 sexpr_list, a1 sexpr_list_len)
+lisp_parse: start_frame 12 # () -> (a0 sexpr)
   sw s0, 0(sp)
   sw s1, 4(sp)
+  mv s0, zero # initially no sexpr
   la tp, file
-  li a0, 4 * 32
-  jal alloc_arena
-  mv s0, a0
-  sw zero, 0(s0)
-  add s1, s0, 4
 lisp_parse.loop:
   jal peek_char
   li t0, ' '
@@ -22,11 +18,12 @@ lisp_parse.loop:
   beqz a0, lisp_parse.end
   # print "reading sexpr\n"
   jal read_sexpr
-  sw a0, 0(s1)
-  add s1, s1, 4
+  beq s0, zero, lisp_parse.first
+  sw s0, NODE_NEXT(a0)
+lisp_parse.first:
+  mv s0, a0
   j lisp_parse.loop
 lisp_parse.whitespace:
-  # print "whitespace\n"
   jal read_char
   j lisp_parse.loop
 lisp_parse.end:
@@ -109,6 +106,7 @@ read_ident.end:
   li a0, AST_NODE_SIZE
   jal alloc_arena
   li t0, AST_IDENT
+  sh zero, NODE_NEXT(a0)
   sh t0, NODE_TYPE(a0)
   sw s0, IDENT_ADDRESS(a0)
   sw s1, IDENT_SIZE(a0)
@@ -123,38 +121,41 @@ read_number: start_frame 8 # () -> (a0 node)
   sw s1, 4(sp)
   mv s0, zero
   li s1, 0 # is negated
-  jal read_char
+  jal peek_char
   li t0, '-'
   bne a0, t0, read_number.cont
-read_number.neg:
-  xori s1, s1, 1
+read_number.neg: # handle negatives
+  xori s1, s1, 1 # flip negated bool
   jal read_char
   li t0, '-'
-  beq a0, t0, read_number.neg
+  beq a0, t0, read_number.neg # check again
 read_number.cont:
-  jal is_digit
+  jal is_digit # check for digit
   beqz a0, read_number.not_a_number
 read_number.loop:
+  jal read_char
   li t0, 10
-  mul s0, s0, t0
-  add s0, s0, a0
+  li t1, '0'
+  mul s0, s0, t0 # s0 *= 10
+  sub a0, a0, t1 # convert from ascii digit
+  add s0, s0, a0 # s0 += a0
   jal peek_char
   jal is_digit
-  beqz a0, read_number.end
-  jal read_char
-  j read_number.loop
+  beqz a0, read_number.end # end if we couldn't find another digit
+  j read_number.loop # go again
 read_number.not_a_number:
   print "number: not a digit\n"
   j panic
 read_number.end:
-  beqz s1, 2f
-  neg s0, s0
+  beqz s1, 2f # if negation needed,
+  neg s0, s0 # negate the number
 2:
   li a0, AST_NODE_SIZE
   jal alloc_arena
+  sh zero, NODE_NEXT(a0)
   li t0, AST_NUMBER
   sh t0, NODE_TYPE(a0)
-  sw zero, NUMBER_VALUE(a0)
+  sw s0, NUMBER_VALUE(a0)
   lw s0, 0(sp)
   lw s1, 4(sp)
   end_frame
@@ -177,12 +178,11 @@ read_group: start_frame 12 # (a0 group_type) -> (a0 node)
   jal alloc_arena
   mv s0, a0
   lb t0, GROUP_DEF_AST_TYPE(s2)
+  sh zero, NODE_NEXT(s0)
   sh t0, NODE_TYPE(s0)
   sw zero, GROUP_CHILDREN(s0)
-  li a0, 4 * 32 # 32 children max
-  jal alloc_arena
-  sw a0, GROUP_ARRAY(s0)
-  mv s1, a0
+  sw zero, GROUP_START(s0)
+  addi s1, s0, GROUP_START
 read_group.read_children:
   jal peek_char
   beqz a0, read_group.end_of_file
@@ -198,7 +198,7 @@ read_group.read_children:
   # read expr
   jal read_expr
   sw a0, 0(s1)
-  addi s1, s1, 4
+  add s1, a0, NODE_NEXT
   j read_group.read_children
 read_group.whitespace:
   jal read_char
@@ -227,6 +227,14 @@ read_group.end:
   lw s2, 8(sp)
   end_frame
 
+read_list:
+  la a0, list_group
+  j read_group
+read_sexpr:
+  la a0, sexpr_group
+  j read_group
+
+.rodata
 /*
 struct group_def {
   u8 open_char;
@@ -237,14 +245,6 @@ struct group_def {
   u32 name_len;
 }
 */
-read_list:
-  la a0, list_group
-  j read_group
-read_sexpr:
-  la a0, sexpr_group
-  j read_group
-
-.rodata
 .balign 4
 list_group:
   .byte '[', ']', AST_LIST, 0
@@ -262,6 +262,7 @@ sexpr_group:
 .balign 4
 .text
 
+# reading utilities
 peek_char: start_frame
   jal erase_comments
   lb a0, 0(tp)
