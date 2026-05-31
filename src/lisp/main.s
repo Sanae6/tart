@@ -8,10 +8,13 @@ lisp_main: start_frame 4
   mv s0, a0
 lisp_main.eval:
   mv a0, s0
+  beqz a0, lisp_main.end
   # ebreak
   jal eval_sexpr
   jal print_integer
   jal print_nl
+  lw s0, NODE_NEXT(s0)
+  j lisp_main.eval
 lisp_main.end:
   lw s0, 0(sp)
   end_frame
@@ -21,8 +24,6 @@ eval_expr: start_frame # (a0 node) -> (a0 value)
   lw t0, NODE_TYPE(a0)
   li t1, AST_NUMBER
   beq t0, t1, eval_expr.eval_number
-  li t1, AST_IDENT
-  beq t0, t1, eval_expr.eval_ident
   li t1, AST_SEXPR
   beq t0, t1, eval_expr.eval_sexpr
   li t1, AST_LIST
@@ -38,9 +39,6 @@ eval_expr.eval_number:
   j eval_expr.end
 eval_expr.eval_sexpr:
   jal eval_sexpr
-  j eval_expr.end
-eval_expr.eval_ident: # where the maybe more interesting stuff happens
-  jal lisp_call
   j eval_expr.end
 eval_expr.eval_list:
   print "cannot evaluate a list"
@@ -59,9 +57,19 @@ eval_sexpr: start_frame 4 # (a0 sexpr) -> (a0 value)
   */
   lw a0, GROUP_START(a0)
   beqz a0, eval_sexpr.no_child
-  
+  lw t0, NODE_TYPE(a0)
+  li t1, AST_IDENT
+  beq t0, t1, eval_sexpr.eval_ident
+  lw t0, NODE_NEXT(a0)
+  bnez t0, eval_sexpr.has_child
   jal eval_expr
   j eval_sexpr.end
+eval_sexpr.eval_ident: # where the maybe more interesting stuff happens
+  jal lisp_call
+  j eval_sexpr.end
+eval_sexpr.has_child:
+  print "non-call sexpr has more than one child"
+  j panic
 eval_sexpr.no_child:
   print "s-expr has no children"
   j panic

@@ -2,7 +2,7 @@
 #include "std.lib.s"
 
 .global lisp_parse
-lisp_parse: start_frame 12 # () -> (a0 sexpr)
+lisp_parse: start_frame 8 # () -> (a0 sexpr)
   sw s0, 0(sp)
   sw s1, 4(sp)
   mv s0, zero # initially no sexpr
@@ -19,16 +19,19 @@ lisp_parse.loop:
   # print "reading sexpr\n"
   jal read_sexpr
   beq s0, zero, lisp_parse.first
-  sw s0, NODE_NEXT(a0)
+  sw a0, NODE_NEXT(s0)
+  mv s0, a0
+  j lisp_parse.loop
 lisp_parse.first:
   mv s0, a0
+  mv s1, a0
   j lisp_parse.loop
 lisp_parse.whitespace:
   jal read_char
   j lisp_parse.loop
 lisp_parse.end:
   print "done parsing\n"
-  mv a0, s0
+  mv a0, s1
   lw s0, 0(sp)
   lw s1, 4(sp)
   end_frame
