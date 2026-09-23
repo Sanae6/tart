@@ -25,6 +25,11 @@
               lld
               qemu
               dtc
+              wabt
+              wasmtime
+              mtools
+              libisoburn
+              fasm
             ];
           };
         }
