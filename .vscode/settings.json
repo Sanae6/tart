@@ -1,4 +1,8 @@
 {
   "fasm2Studio.format.mnemonicColumn": 2,
-  "fasm2Studio.format.operandColumn": 10
+  "fasm2Studio.format.operandColumn": 10,
+  "files.associations": {
+    "flake.lock": "json",
+    "*.s": "fasm"
+  }
 }
